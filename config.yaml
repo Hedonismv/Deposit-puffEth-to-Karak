@@ -1,0 +1,19 @@
+app:
+  name: "Puffer & Karak Deposit"
+  version: "1.0.0"
+
+
+ethereum:
+  rpc: "https://eth.llamarpc.com"
+  delays:
+    wallet:
+      min: 2000
+      max: 4000
+    block:
+      min: 250
+      max: 500
+  workflow:
+    gweiLimit: 10
+    workAmountRangePercent:
+      min: 80
+      max: 99
