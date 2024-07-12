@@ -26,7 +26,7 @@ var karakVaultAddress = "0x68754d29f2e97B837Cb622ccfF325adAC27E9977"
 
 var karakABI = `[{"inputs":[{"internalType":"contract IVault","name":"vault","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"minSharesOut","type":"uint256"}],"name":"deposit","outputs":[{"internalType":"uint256","name":"shares","type":"uint256"}],"stateMutability":"nonpayable","type":"function"}]`
 
-func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, amountPuffEth *big.Int) string {
+func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, amountPuffEth *big.Int, cfg *config.Config) string {
 	ctx := context.Background()
 
 	contractAddress := common.HexToAddress(karakVaultContract)
@@ -65,7 +65,7 @@ func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 		log.Printf("Failed to pack function input: %v", err)
 	}
 
-	formatter.CheckGasPrice(provider, config.Config{})
+	formatter.CheckGasPrice(provider, cfg)
 
 	// ! GasLimit
 	gasLimit, err := provider.EstimateGas(context.Background(), ethereum.CallMsg{

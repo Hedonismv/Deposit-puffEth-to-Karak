@@ -163,7 +163,7 @@ func main() {
 
 		//! Deposit puffEth to Karak
 		infoText.Printf("Depositing %f PuffEth to Karak\n", formatter.ConvertWeiToEther(puffEthBalance))
-		karakDepositResponse := karak.DepositToKarak(client, privateKeyECDSA, puffEthBalance)
+		karakDepositResponse := karak.DepositToKarak(client, privateKeyECDSA, puffEthBalance, config)
 		successLogger.Println(successText("Successful deposit to Karak: %s\n", karakDepositResponse))
 		greenText.Printf("Successful deposit to Karak: %s\n", karakDepositResponse)
 
