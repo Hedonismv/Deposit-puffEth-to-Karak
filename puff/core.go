@@ -23,7 +23,7 @@ var EthPuffTokenContractAddress = "0xD9A442856C234a39a81a089C06451EBAa4306a72"
 var contractABI = `[{"inputs":[{"internalType":"contract IStETH","name":"stETH","type":"address"},{"internalType":"contract IWETH","name":"weth","type":"address"},{"internalType":"contract ILidoWithdrawalQueue","name":"lidoWithdrawalQueue","type":"address"},{"internalType":"contract IStrategy","name":"stETHStrategy","type":"address"},{"internalType":"contract IEigenLayer","name":"eigenStrategyManager","type":"address"},{"internalType":"contract IPufferOracle","name":"oracle","type":"address"},{"internalType":"contract IDelegationManager","name":"delegationManager","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"receiver","type":"address"}],"name":"depositETH","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 var InfoText = color.New(color.FgBlue)
 
-func DepositEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, amountInEth float64) string {
+func DepositEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, amountInEth float64, cfg *config.Config) string {
 
 	ctx := context.Background()
 
@@ -34,37 +34,37 @@ func DepositEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, a
 	//! Parsed ABI
 	parsedABI, err := abi.JSON(strings.NewReader(contractABI))
 	if err != nil {
-		log.Fatalf("Failed to parse contract ABI: %v", err)
+		log.Printf("Failed to parse contract ABI: %v", err)
 	}
 
 	//! Get the nonce
 	nonce, err := provider.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
-		log.Fatalf("Failed to get nonce: %v", err)
+		log.Printf("Failed to get nonce: %v", err)
 	}
 
 	//! Gas Price
 	gasPrice, err := provider.SuggestGasPrice(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get gas price: %v", err)
+		log.Printf("Failed to get gas price: %v", err)
 	}
 
 	// ! Chain ID
 	chainID, err := provider.ChainID(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get chain ID: %v", err)
+		log.Printf("Failed to get chain ID: %v", err)
 	}
 
 	// ! Calldata
 	callData, err := parsedABI.Pack("depositETH", fromAddress)
 	if err != nil {
-		log.Fatalf("Failed to pack function input: %v", err)
+		log.Printf("Failed to pack function input: %v", err)
 	}
 
 	//! Convert ETH amount to Wei
 	valueInWei := formatter.ConvertEtherToWei(amountInEth)
 
-	formatter.CheckGasPrice(provider, config.Config{})
+	formatter.CheckGasPrice(provider, cfg)
 
 	// ! GasLimit
 	gasLimit, err := provider.EstimateGas(context.Background(), ethereum.CallMsg{
@@ -73,25 +73,25 @@ func DepositEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, a
 		Value: valueInWei,
 	})
 	if err != nil {
-		log.Fatalf("Failed to estimate gas: %v", err)
+		log.Printf("Failed to estimate gas: %v", err)
 	}
 
 	//! Get wallet balance
 	walletBalance, err := provider.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
-		log.Fatalf("Failed to get wallet balance: %v", err)
+		log.Printf("Failed to get wallet balance: %v", err)
 	}
 
 	//! Check if the wallet has enough balance
 	transactionPrice, hasEnoughBalance := formatter.GetTransactionCost(gasLimit, gasPrice, valueInWei, walletBalance)
 	if !hasEnoughBalance {
-		log.Fatalf("Insufficient balance. Transaction cost: %v", transactionPrice)
+		log.Printf("Insufficient balance. Transaction cost: %v", transactionPrice)
 	}
 
 	//!Data for function
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKeyECDSA, chainID)
 	if err != nil {
-		log.Fatalf("Failed to create keyed transactor %v", err)
+		log.Printf("Failed to create keyed transactor %v", err)
 	}
 
 	auth.Nonce = big.NewInt(int64(nonce))
@@ -114,20 +114,20 @@ func DepositEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKey, a
 	//! Sign the transaction
 	signedTx, err := auth.Signer(fromAddress, tx)
 	if err != nil {
-		log.Fatalf("Failed to sign transaction: %v", err)
+		log.Printf("Failed to sign transaction: %v", err)
 	}
 
 	//! Send the transaction
 	err = provider.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		log.Fatalf("Failed to send transaction: %v", err)
+		log.Printf("Failed to send transaction: %v", err)
 	}
 
 	InfoText.Printf("Transaction sent: %s\n", signedTx.Hash().Hex())
 
 	receipt, err := formatter.WaitForTransactionReceipt(provider, signedTx.Hash())
 	if err != nil {
-		log.Fatalf("Failed to get transaction receipt: %v", err)
+		log.Printf("Failed to get transaction receipt: %v", err)
 	}
 
 	fmt.Printf("Transaction confirmed in block: %d\n", receipt.BlockNumber.Uint64())
@@ -146,31 +146,31 @@ func ApprovePuffEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 	//! Get the nonce
 	nonce, err := provider.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
-		log.Fatalf("Failed to get nonce: %v", err)
+		log.Printf("Failed to get nonce: %v", err)
 	}
 
 	//! Gas Price
 	gasPrice, err := provider.SuggestGasPrice(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get gas price: %v", err)
+		log.Printf("Failed to get gas price: %v", err)
 	}
 
 	// ! Chain ID
 	chainID, err := provider.ChainID(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get chain ID: %v", err)
+		log.Printf("Failed to get chain ID: %v", err)
 	}
 
 	//! Parsed ABI
 	parsedABI, err := abi.JSON(strings.NewReader(contractABI))
 	if err != nil {
-		log.Fatalf("Failed to parse contract ABI: %v", err)
+		log.Printf("Failed to parse contract ABI: %v", err)
 	}
 
 	// ! Calldata
 	callData, err := parsedABI.Pack("approve", common.HexToAddress(spender), amountPuffEth)
 	if err != nil {
-		log.Fatalf("Failed to pack function input: %v", err)
+		log.Printf("Failed to pack function input: %v", err)
 	}
 
 	// ! GasLimit
@@ -180,13 +180,13 @@ func ApprovePuffEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 		Data: callData,
 	})
 	if err != nil {
-		log.Fatalf("Failed to estimate gas: %v", err)
+		log.Printf("Failed to estimate gas: %v", err)
 	}
 
 	//!Data for function
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKeyECDSA, chainID)
 	if err != nil {
-		log.Fatalf("Failed to create keyed transactor %v", err)
+		log.Printf("Failed to create keyed transactor %v", err)
 	}
 
 	auth.Nonce = big.NewInt(int64(nonce))
@@ -209,20 +209,20 @@ func ApprovePuffEth(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 	//! Sign the transaction
 	signedTx, err := auth.Signer(fromAddress, tx)
 	if err != nil {
-		log.Fatalf("Failed to sign transaction: %v", err)
+		log.Printf("Failed to sign transaction: %v", err)
 	}
 
 	//! Send the transaction
 	err = provider.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		log.Fatalf("Failed to send transaction: %v", err)
+		log.Printf("Failed to send transaction: %v", err)
 	}
 
 	InfoText.Printf("Transaction sent: %s\n", signedTx.Hash().Hex())
 
 	receipt, err := formatter.WaitForTransactionReceipt(provider, signedTx.Hash())
 	if err != nil {
-		log.Fatalf("Failed to get transaction receipt: %v", err)
+		log.Printf("Failed to get transaction receipt: %v", err)
 	}
 
 	fmt.Printf("Transaction confirmed in block: %d\n", receipt.BlockNumber.Uint64())
@@ -236,7 +236,7 @@ func GetPuffEthBalance(provider *ethclient.Client, address common.Address) (*big
 	//! Parsed ABI
 	parsedABI, err := abi.JSON(strings.NewReader(contractABI))
 	if err != nil {
-		log.Fatalf("Failed to parse contract ABI: %v", err)
+		log.Printf("Failed to parse contract ABI: %v", err)
 	}
 
 	callData, err := parsedABI.Pack("balanceOf", address)
@@ -248,13 +248,13 @@ func GetPuffEthBalance(provider *ethclient.Client, address common.Address) (*big
 
 	result, err := provider.CallContract(context.Background(), msg, nil)
 	if err != nil {
-		log.Fatalf("Failed to call contract: %v", err)
+		log.Printf("Failed to call contract: %v", err)
 	}
 
 	var balance *big.Int
 	err = parsedABI.UnpackIntoInterface(&balance, "balanceOf", result)
 	if err != nil {
-		log.Fatalf("Failed to unpack result: %v", err)
+		log.Printf("Failed to unpack result: %v", err)
 	}
 	return balance, nil
 }

@@ -36,25 +36,25 @@ func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 	//! Parsed ABI
 	parsedABI, err := abi.JSON(strings.NewReader(karakABI))
 	if err != nil {
-		log.Fatalf("Failed to parse contract ABI: %v", err)
+		log.Printf("Failed to parse contract ABI: %v", err)
 	}
 
 	//! Get the nonce
 	nonce, err := provider.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
-		log.Fatalf("Failed to get nonce: %v", err)
+		log.Printf("Failed to get nonce: %v", err)
 	}
 
 	//! Gas Price
 	gasPrice, err := provider.SuggestGasPrice(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get gas price: %v", err)
+		log.Printf("Failed to get gas price: %v", err)
 	}
 
 	// ! Chain ID
 	chainID, err := provider.ChainID(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get chain ID: %v", err)
+		log.Printf("Failed to get chain ID: %v", err)
 	}
 
 	minShareOut := formatter.CalculateSlippage(amountPuffEth) // ! 1% slippage
@@ -62,7 +62,7 @@ func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 	// ! Calldata
 	callData, err := parsedABI.Pack("deposit", common.HexToAddress(karakVaultAddress), amountPuffEth, minShareOut)
 	if err != nil {
-		log.Fatalf("Failed to pack function input: %v", err)
+		log.Printf("Failed to pack function input: %v", err)
 	}
 
 	formatter.CheckGasPrice(provider, config.Config{})
@@ -74,25 +74,25 @@ func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 		Data: callData,
 	})
 	if err != nil {
-		log.Fatalf("Failed to estimate gas: %v", err)
+		log.Printf("Failed to estimate gas: %v", err)
 	}
 
 	//! Get wallet balance
 	walletBalance, err := provider.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
-		log.Fatalf("Failed to get wallet balance: %v", err)
+		log.Printf("Failed to get wallet balance: %v", err)
 	}
 
 	//! Check if the wallet has enough balance
 	transactionPrice, hasEnoughBalance := formatter.GetTransactionCost(gasLimit, gasPrice, big.NewInt(0), walletBalance)
 	if !hasEnoughBalance {
-		log.Fatalf("Insufficient balance. Transaction cost: %v", transactionPrice)
+		log.Printf("Insufficient balance. Transaction cost: %v", transactionPrice)
 	}
 
 	//!Data for function
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKeyECDSA, chainID)
 	if err != nil {
-		log.Fatalf("Failed to create keyed transactor %v", err)
+		log.Printf("Failed to create keyed transactor %v", err)
 	}
 
 	auth.Nonce = big.NewInt(int64(nonce))
@@ -115,20 +115,20 @@ func DepositToKarak(provider *ethclient.Client, privateKeyECDSA *ecdsa.PrivateKe
 	//! Sign the transaction
 	signedTx, err := auth.Signer(fromAddress, tx)
 	if err != nil {
-		log.Fatalf("Failed to sign transaction: %v", err)
+		log.Printf("Failed to sign transaction: %v", err)
 	}
 
 	//! Send the transaction
 	err = provider.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		log.Fatalf("Failed to send transaction: %v", err)
+		log.Printf("Failed to send transaction: %v", err)
 	}
 
 	InfoText.Printf("Transaction sent: %s\n", signedTx.Hash().Hex())
 
 	receipt, err := formatter.WaitForTransactionReceipt(provider, signedTx.Hash())
 	if err != nil {
-		log.Fatalf("Failed to get transaction receipt: %v", err)
+		log.Printf("Failed to get transaction receipt: %v", err)
 	}
 
 	fmt.Printf("Transaction confirmed in block: %d\n", receipt.BlockNumber.Uint64())

@@ -69,6 +69,7 @@ func getRandomAmount(balance *big.Int, minPercent int, maxPercent int) *big.Int 
 }
 
 var successText = color.New(color.FgGreen).SprintfFunc()
+var greenText = color.New(color.FgGreen)
 var warningText = color.New(color.FgYellow)
 var errorText = color.New(color.FgRed)
 var infoText = color.New(color.FgBlue)
@@ -80,7 +81,7 @@ var (
 func init() {
 	successFile, err := os.OpenFile("success.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalf("Failed to open success log file: %v", err)
+		log.Printf("Failed to open success log file: %v", err)
 	}
 
 	successLogger = log.New(successFile, "", log.LstdFlags)
@@ -91,7 +92,7 @@ func main() {
 
 	config, err := loadConfig()
 	if err != nil {
-		log.Fatalf("Error loading config: %v", err)
+		log.Printf("Error loading config: %v", err)
 	}
 
 	fmt.Printf("App Name: %s\n", config.App.Name)
@@ -104,11 +105,11 @@ func main() {
 
 	client, err := ethclient.Dial(config.Ethereum.Rpc)
 	if err != nil {
-		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
+		log.Printf("Failed to connect to the Ethereum client: %v", err)
 	}
 	keys, err := readKeysFromFile("keys.txt")
 	if err != nil {
-		log.Fatalf("Error reading keys from file: %v", err)
+		log.Printf("Error reading keys from file: %v", err)
 	}
 
 	//! Main Loop
@@ -118,7 +119,7 @@ func main() {
 
 		privateKeyECDSA, err := crypto.HexToECDSA(hex256Pk)
 		if err != nil {
-			log.Fatalf("Failed to parse private key: %v", err)
+			log.Printf("Failed to parse private key: %v", err)
 		}
 		fromAddress := crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)
 
@@ -140,8 +141,9 @@ func main() {
 
 		//! Main Dep function
 		infoText.Printf("Depositing %f ETH to PuffEth\n", ethAmount)
-		res := puff.DepositEth(client, privateKeyECDSA, ethAmount)
+		res := puff.DepositEth(client, privateKeyECDSA, ethAmount, config)
 		successLogger.Println(successText("Successful deposit: %s\n", res))
+		greenText.Printf("Successful deposit: %s\n", res)
 
 		//! Delay Blocks
 		delayer.DelayBlock(config)
@@ -154,6 +156,7 @@ func main() {
 		infoText.Printf("Approving %f PuffEth\n", formatter.ConvertWeiToEther(puffEthBalance))
 		approveResponse := puff.ApprovePuffEth(client, privateKeyECDSA, puffEthBalance, "0x68754d29f2e97B837Cb622ccfF325adAC27E9977")
 		successLogger.Println(successText("Successful approve: %s\n", approveResponse))
+		greenText.Printf("Successful approve: %s\n", approveResponse)
 
 		//! Delay Blocks
 		delayer.DelayBlock(config)
@@ -162,6 +165,7 @@ func main() {
 		infoText.Printf("Depositing %f PuffEth to Karak\n", formatter.ConvertWeiToEther(puffEthBalance))
 		karakDepositResponse := karak.DepositToKarak(client, privateKeyECDSA, puffEthBalance)
 		successLogger.Println(successText("Successful deposit to Karak: %s\n", karakDepositResponse))
+		greenText.Printf("Successful deposit to Karak: %s\n", karakDepositResponse)
 
 		//! Delay Wallets
 		delayer.DelayWallet(config)

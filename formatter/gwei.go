@@ -42,7 +42,7 @@ func CalculateSlippage(valueInWei *big.Int) *big.Int {
 	return minValue
 }
 
-func CheckGasPrice(client *ethclient.Client, cfg config.Config) {
+func CheckGasPrice(client *ethclient.Client, cfg *config.Config) {
 	limit := big.NewInt(int64(cfg.Ethereum.Workflow.GweiLimit))
 	for {
 		gasPrice, err := client.SuggestGasPrice(context.Background())
